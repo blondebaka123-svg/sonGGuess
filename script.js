@@ -77,8 +77,11 @@ document.addEventListener('DOMContentLoaded', () => {
      Subtle parallax on the hero background glow
   --------------------------------------------------- */
   function heroParallax() {
+    // yPercent (scroll-driven) is a separate transform channel from the
+    // plain x/y (cursor-driven) used in heroCursorGlow, so the two compose
+    // instead of fighting over the same value.
     gsap.to('.hero-glow', {
-      y: 120,
+      yPercent: 14,
       ease: 'none',
       scrollTrigger: {
         trigger: '.hero',
@@ -93,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
      Scroll reveals — About text, section heading, CTA
   --------------------------------------------------- */
   function scrollReveals() {
-    const items = gsap.utils.toArray('.reveal:not(.work-card)');
+    const items = gsap.utils.toArray('.reveal:not(.poster-card)');
 
     items.forEach((el) => {
       gsap.fromTo(
@@ -109,27 +112,72 @@ document.addEventListener('DOMContentLoaded', () => {
       );
     });
 
-    // Work cards: staggered reveal as a group
-    gsap.fromTo(
-      '.work-card',
-      { opacity: 0, y: 50, scale: .96 },
-      {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        duration: .9,
-        ease: 'power3.out',
-        stagger: .15,
-        scrollTrigger: { trigger: '.work-grid', start: 'top 80%' }
-      }
-    );
+    // Each poster slate (Work, Projects) reveals as its own staggered group
+    document.querySelectorAll('.poster-grid').forEach((grid) => {
+      gsap.fromTo(
+        grid.querySelectorAll('.poster-card'),
+        { opacity: 0, y: 50, scale: .96 },
+        {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: .9,
+          ease: 'power3.out',
+          stagger: .15,
+          scrollTrigger: { trigger: grid, start: 'top 80%' }
+        }
+      );
+    });
   }
 
   /* ---------------------------------------------------
-     Work card magnetic tilt — responds to the cursor
+     Hero glow follows the cursor — pointer devices only
+  --------------------------------------------------- */
+  function heroCursorGlow() {
+    const hero = document.querySelector('.hero');
+    const glow = document.querySelector('.hero-glow');
+    if (!hero || !glow || !window.matchMedia('(pointer: fine)').matches) return;
+
+    const setX = gsap.quickTo(glow, 'x', { duration: 1.1, ease: 'power3.out' });
+    const setY = gsap.quickTo(glow, 'y', { duration: 1.1, ease: 'power3.out' });
+
+    hero.addEventListener('mousemove', (e) => {
+      const rect = hero.getBoundingClientRect();
+      const px = (e.clientX - rect.left) / rect.width - 0.5;
+      const py = (e.clientY - rect.top) / rect.height - 0.5;
+      setX(px * 60);
+      setY(py * 60);
+    });
+  }
+
+  /* ---------------------------------------------------
+     Magnetic buttons — nudge toward the cursor on hover
+  --------------------------------------------------- */
+  function magneticButtons() {
+    if (!window.matchMedia('(pointer: fine)').matches) return;
+
+    document.querySelectorAll('.magnetic').forEach((btn) => {
+      const setX = gsap.quickTo(btn, 'x', { duration: .5, ease: 'power3.out' });
+      const setY = gsap.quickTo(btn, 'y', { duration: .5, ease: 'power3.out' });
+
+      btn.addEventListener('mousemove', (e) => {
+        const rect = btn.getBoundingClientRect();
+        setX((e.clientX - rect.left - rect.width / 2) * .35);
+        setY((e.clientY - rect.top - rect.height / 2) * .35);
+      });
+
+      btn.addEventListener('mouseleave', () => {
+        setX(0);
+        setY(0);
+      });
+    });
+  }
+
+  /* ---------------------------------------------------
+     Poster card magnetic tilt — responds to the cursor
   --------------------------------------------------- */
   function cardTilt() {
-    const cards = document.querySelectorAll('.work-card');
+    const cards = document.querySelectorAll('.poster-card');
 
     cards.forEach((card) => {
       const setRotateX = gsap.quickTo(card, 'rotateX', { duration: .5, ease: 'power3.out' });
@@ -154,9 +202,46 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  /* ---------------------------------------------------
+     Cursor tag — a small floating label (PLAY / SHOP / VIEW)
+     that tracks the cursor while it's over a poster card
+  --------------------------------------------------- */
+  function cursorTag() {
+    if (!window.matchMedia('(pointer: fine)').matches) return;
+
+    const tag = document.getElementById('cursorTag');
+    const tagText = document.getElementById('cursorTagText');
+    if (!tag || !tagText) return;
+
+    gsap.set(tag, { xPercent: -50, yPercent: -50 });
+    const setX = gsap.quickTo(tag, 'x', { duration: .35, ease: 'power3.out' });
+    const setY = gsap.quickTo(tag, 'y', { duration: .35, ease: 'power3.out' });
+
+    document.querySelectorAll('.poster-card').forEach((card) => {
+      const label = card.dataset.cursorLabel || 'View';
+
+      card.addEventListener('mouseenter', () => {
+        tagText.textContent = label;
+        tag.classList.add('is-visible');
+      });
+
+      card.addEventListener('mousemove', (e) => {
+        setX(e.clientX);
+        setY(e.clientY);
+      });
+
+      card.addEventListener('mouseleave', () => {
+        tag.classList.remove('is-visible');
+      });
+    });
+  }
+
   heroIntro();
   heroParallax();
+  heroCursorGlow();
   scrollReveals();
   cardTilt();
+  magneticButtons();
+  cursorTag();
 
 });
